@@ -73,23 +73,23 @@ monitor(#sip_destination{address = Address, port = Port}) ->
 %% @end
 -spec send_request(#sip_destination{}, #sip_request{}, [{ttl, non_neg_integer()}]) -> ok | {error, Reason :: term()}.
 send_request(To, Request, Opts) when is_record(To, sip_destination) ->
-    % Validate request
+    %% Validate request
     ok = sip_message:validate_request(Request),
 
-    % Add Content-Length, if missing
+    %% Add Content-Length, if missing
     Request2 = add_content_length(Request),
 
-    % Update top Via header
+    %% Update top Via header
     TTL = proplists:get_value(ttl, Opts, 1),
     Request3 = add_via_sentby(Request2, To, TTL),
 
     case transport_send(To, Request3) of
         ok -> ok;
         {error, too_big} ->
-            % Try with congestion controlled protocol (TCP) (only for requests, 18.1)
+            %% Try with congestion controlled protocol (TCP) (only for requests, 18.1)
             sip_log:too_big(Request3),
 
-            % Change transport (note: using request without Via: updated)
+            %% Change transport (note: using request without Via: updated)
             send_request(To#sip_destination{transport = tcp}, Request2, Opts);
         {error, Reason} -> {error, Reason}
      end.
@@ -101,7 +101,7 @@ send_request(To, Request, Opts) when is_record(To, sip_destination) ->
 %% @end
 -spec send_response(#sip_response{}) -> ok | {error, Reason :: term()}.
 send_response(Response) when is_record(Response, sip_response) ->
-    % Validate response
+    %% Validate response
     ok = sip_message:validate_response(Response),
 
     Response2 = add_content_length(Response),
@@ -109,7 +109,7 @@ send_response(Response) when is_record(Response, sip_response) ->
     Via = sip_message:header_top_value(via, Response2),
     case is_reliable(Via#sip_hdr_via.transport) of
         true ->
-            % try to lookup the connection
+            %% try to lookup the connection
             Key = sip_transaction:tx_key(server, Response2),
             case gproc:lookup_pids({p, l, {connection, Key}}) of
                 [Pid | _Rest] ->
@@ -117,15 +117,15 @@ send_response(Response) when is_record(Response, sip_response) ->
                     case transport_send(Connection, Response2) of
                         ok -> ok;
                         {error, _Reason} ->
-                            % try to send to address in `received'
+			    %% try to send to address in `received'
                             send_response_received(Response2)
                     end;
                 [] ->
-                    % no connections for tx, send to address `received'
+		    %% no connections for tx, send to address `received'
                     send_response_received(Response2)
             end;
         false ->
-            % not reliable -- send to address in `received'
+	    %% not reliable -- send to address in `received'
             send_response_received(Response2)
     end.
 
@@ -138,16 +138,16 @@ send_response_received(Response) ->
     IsReliable = is_reliable(Transport),
     case lists:keyfind(maddr, 1, Params) of
         {_, MAddr} when not IsReliable ->
-            % use 'maddr' parameter for unreliable transports
+	    %% use 'maddr' parameter for unreliable transports
             Addr = sip_resolve:resolve(MAddr),
             Port = Via#sip_hdr_via.port,
             To = #sip_destination{address = Addr, port = Port, transport = Transport},
             transport_send(To, Response);
         false ->
             case lists:keyfind(received, 1, Params) of
-                % use received parameter, must be IP
+		%% use received parameter, must be IP
                 {_, Received} ->
-                    % if rport is present, send to it, RFC 3581 4
+		    %% if rport is present, send to it, RFC 3581 4
                     Port =
                         case lists:keyfind(rport, 1, Params) of
                             {rport, RPort} -> RPort;
@@ -156,9 +156,9 @@ send_response_received(Response) ->
                     To = #sip_destination{address = Received, port = Port, transport = Transport},
                     transport_send(To, Response);
                 false ->
-                    % Use procedures of Section 5 RFC 3263
+                    %% Use procedures of Section 5 RFC 3263
                     Destinations = sip_resolve:server_resolve(Via),
-                    % FIXME: TLS?
+                    %% FIXME: TLS?
                     send_response_fallback(Destinations, Response)
             end
     end.
@@ -170,7 +170,7 @@ send_response_fallback([To|Rest], Response) ->
     case transport_send(To, Response) of
         ok -> ok;
         {error, _Reason} ->
-            % try next destination
+	    %% try next destination
             send_response_fallback(Rest, Response)
     end.
 
@@ -186,25 +186,25 @@ send_response_fallback([To|Rest], Response) ->
 %% @private
 -spec dispatch(#sip_destination{}, sip_message()) -> ok.
 dispatch(From, Request) when is_record(Request, sip_request) ->
-    % pre-parse message
+    %% pre-parse message
     Request2 = pre_parse(Request),
 
     Request3 = add_via_received(From, Request2),
-    % 18.2.1: route to server transaction or to core
+    %% 18.2.1: route to server transaction or to core
     case sip_transaction:handle_request(Request3) of
         not_handled -> dispatch_core(request, Request3);
         {ok, _TxRef} -> ok
     end,
     ok;
 dispatch(From, Response) when is_record(Response, sip_response) ->
-    % When a response is received, the client transport examines the top
-    % Via header field value.  If the value of the "sent-by" parameter in
-    % that header field value does not correspond to a value that the
-    % client transport is configured to insert into requests, the response
-    % MUST be silently discarded.
+    %% When a response is received, the client transport examines the top
+    %% Via header field value.  If the value of the "sent-by" parameter in
+    %% that header field value does not correspond to a value that the
+    %% client transport is configured to insert into requests, the response
+    %% MUST be silently discarded.
     case check_sent_by(From#sip_destination.transport, Response) of
         true ->
-            % 18.1.2: route to client transaction or to core
+	    %% 18.1.2: route to client transaction or to core
             case sip_transaction:handle_response(Response) of
                 not_handled -> dispatch_core(response, Response);
                 {ok, _TxRef} -> ok
@@ -223,7 +223,7 @@ add_via_sentby(Message, #sip_destination{address = To, transport = Transport}, T
     Fun = fun (Via) ->
                    Params = Via#sip_hdr_via.params,
                    NewParams = case To of
-                                   % multicast
+				   %% multicast
                                    {A, _B, _C, _D} when A >= 224, A =< 239 -> % FIXME: utility...
                                        AddrBin = sip_syntax:format_addr(To),
                                        Params2 = lists:keystore('maddr', 1, Params,  {'maddr', AddrBin}),
@@ -239,13 +239,13 @@ add_via_sentby(Message, #sip_destination{address = To, transport = Transport}, T
 -spec check_sent_by(atom(), sip_message()) -> true | {Expected :: term(), Actual :: term()}.
 %% Check message sent by matches one inserted by the transport layer
 check_sent_by(Transport, Msg) ->
-    % port is explicit in expected sent-by
+    %% port is explicit in expected sent-by
     ExpectedSentBy = sent_by(Transport),
 
-    % take top via sent-by
+    %% take top via sent-by
     Via = sip_message:header_top_value('via', Msg),
     case Via#sip_hdr_via.port of
-        % Default port, RFC 3261 18.1
+	%% Default port, RFC 3261 18.1
         undefined ->
             SentBy = {Via#sip_hdr_via.host, default_port(Transport)};
         Port ->
@@ -262,7 +262,7 @@ check_sent_by(Transport, Msg) ->
 % RFC 3261, 18.2.1
 
 add_via_received(#sip_destination{address = Src, port = Port}, Msg) when is_tuple(Src) ->
-    % Note: according to the RFC 3581 4, we always add 'received' parameter
+    %% Note: according to the RFC 3581 4, we always add 'received' parameter
     Fun =
         fun (TopVia) ->
                  Params = lists:keystore(received, 1, TopVia#sip_hdr_via.params, {received, Src}),
@@ -306,8 +306,8 @@ transport_module(tcp) -> sip_transport_tcp.
 dispatch_core(Kind, Msg) ->
     case sip_cores:lookup_core(Msg) of
         {ok, Pid, _Reg} ->
-            % Note: according to RFC 6026 responses MUST be dropped by any element
-            % other than stateless proxy
+	    %% Note: according to RFC 6026 responses MUST be dropped by any element
+	    %% other than stateless proxy
             Pid ! {Kind, Msg},
             ok;
         undefined ->
@@ -323,11 +323,11 @@ pre_parse(#sip_request{} = Msg) ->
     Msg#sip_request{uri = URI, headers = Headers}.
 
 pre_parse_headers(Headers) ->
-    % TODO: Catch incorrect headers and report as bad request/response
+    %% TODO: Catch incorrect headers and report as bad request/response
     Fun =
         fun({Name, Value}) when
-             Name =:= to; Name =:= from; Name =:= cseq; Name =:= 'call-id';
-             Name =:= 'max-forwards'; Name =:= via; Name =:= 'contact' ->
+		  Name =:= to; Name =:= from; Name =:= cseq; Name =:= 'call-id';
+		  Name =:= 'max-forwards'; Name =:= via; Name =:= 'contact' ->
                 {Name, sip_headers:parse(Name, Value)};
            (Other) -> Other
         end,

@@ -515,7 +515,7 @@ has_header_delimiter(Data, Offset) ->
 %% RFC3261 7.1: The SIP-Version string is case-insensitive, but implementations MUST send upper-case.
 -spec parse_start_line(binary()) -> #sip_request{} | #sip_response{}.
 parse_start_line(StartLine) when is_binary(StartLine) ->
-    % split on three parts
+    %% split on three parts
     [First, Rest] = binary:split(StartLine, <<" ">>),
     [Second, Third] = binary:split(Rest, <<" ">>),
     case {First, Second, Third} of
@@ -524,9 +524,9 @@ parse_start_line(StartLine) when is_binary(StartLine) ->
                          uri = RequestURI};
 
         {<<?SIPVERSION>>, <<A,B,C>>, ReasonPhrase} when
-          $1 =< A andalso A =< $6 andalso % 1xx - 6xx
-          $0 =< B andalso B =< $9 andalso
-          $0 =< C andalso C =< $9 ->
+	      $1 =< A andalso A =< $6 andalso % 1xx - 6xx
+	      $0 =< B andalso B =< $9 andalso
+	      $0 =< C andalso C =< $9 ->
             #sip_response{status = list_to_integer([A, B, C]),
                           reason = ReasonPhrase}
     end.

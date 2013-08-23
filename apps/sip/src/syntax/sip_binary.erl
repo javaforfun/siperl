@@ -94,24 +94,6 @@ parse_until(Bin, Fun) when is_function(Fun) ->
 
 %% Conversions
 
-%% @doc Convert UTF-8 binary to integer
-%% @end
--spec binary_to_integer(binary()) -> integer().
-binary_to_integer(Bin) when is_binary(Bin) ->
-    list_to_integer(binary_to_list(Bin)).
-
-%% @doc Convert integer to ASCII binary.
-%% @end
--spec integer_to_binary(integer()) -> binary().
-integer_to_binary(Int) when is_integer(Int) ->
-    list_to_binary(integer_to_list(Int)).
-
-%% @doc Convert UTF-8 binary to floating point number
-%% @end
--spec binary_to_float(binary()) -> float().
-binary_to_float(Bin) when is_binary(Bin) ->
-    list_to_float(binary_to_list(Bin)).
-
 %% @doc Convert binary hex string to binary
 %%
 %% Convert binary hex string to binary. For example, binary hex string
@@ -152,6 +134,25 @@ int(C) when C >= $0, C =< $9 -> C - $0;
 int(C) when C >= $a, C =< $z -> C - $a + 10;
 int(C) when C >= $A, C =< $Z -> C - $A + 10.
 
+%% OTP-R16B already have these functions
+
+%% @doc Convert UTF-8 binary to integer
+%% @end
+-spec binary_to_integer(binary()) -> integer().
+binary_to_integer(Bin) when is_binary(Bin) ->
+    list_to_integer(binary_to_list(Bin)).
+
+%% @doc Convert integer to ASCII binary.
+%% @end
+-spec integer_to_binary(integer()) -> binary().
+integer_to_binary(Int) when is_integer(Int) ->
+    list_to_binary(integer_to_list(Int)).
+
+%% @doc Convert UTF-8 binary to floating point number
+%% @end
+-spec binary_to_float(binary()) -> float().
+binary_to_float(Bin) when is_binary(Bin) ->
+    list_to_float(binary_to_list(Bin)).
 
 %% @doc Convert floating point number to ASCII binary.
 %%
@@ -163,7 +164,7 @@ float_to_binary(Float) when is_float(Float) ->
     Bin = list_to_binary(Res),
     Sz1 = size(Bin) - 1,
     Sz2 = Sz1 - 1,
-    % Strip last zeros
+    %% Strip last zeros
     case Bin of
         <<R:Sz2/binary, "00">> -> R;
         <<R:Sz1/binary, "0">> -> R;

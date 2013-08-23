@@ -42,8 +42,7 @@ parse_headers(Headers) when is_binary(Headers) ->
 -spec format_headers([{sip_name(), term()}]) -> binary().
 format_headers(Headers) ->
     << <<(process(fn, Name, ignore))/binary, ": ",
-         (format(Name, Value))/binary, "\r\n">> ||
-       {Name, Value} <- Headers>>.
+         (format(Name, Value))/binary, "\r\n">> || {Name, Value} <- Headers>>.
 
 %%-----------------------------------------------------------------
 %% Header parsing/format functions
@@ -154,8 +153,8 @@ format(Name, [Value]) -> process(f, Name, Value);
 format(Name, [Top | Rest]) ->
     Joiner =
         fun (Elem, Bin) ->
-                 ElemBin = process(f, Name, Elem),
-                 <<Bin/binary, ?COMMA, ?SP, ElemBin/binary>>
+		ElemBin = process(f, Name, Elem),
+		<<Bin/binary, ?COMMA, ?SP, ElemBin/binary>>
         end,
     TopBin = process(f, Name, Top),
     lists:foldl(Joiner, TopBin, Rest);
@@ -167,7 +166,7 @@ format(Name, Value) -> process(f, Name, Value).
 %% @end
 -spec process(p | f | pn | fn, Name :: sip_name(), Value :: any()) -> term().
 
-% Default header processing
+%% Default header processing
 process(p, _Name, Header) when not is_binary(Header) -> Header; % already parsed
 process(f, _Name, Value) when is_binary(Value) -> Value; % already formatted
 
@@ -243,7 +242,7 @@ process(f, 'authentication-info', {_Key, _Value} = Pair) ->
 process(fn, 'authorization', _Ignore) -> <<"Authorization">>;
 process(p, 'authorization', Bin) ->
     {SchemeBin, Bin2} = sip_syntax:parse_token(Bin),
-    % parse scheme, the rest is list of paris param=value
+    %% parse scheme, the rest is list of paris param=value
     Scheme = sip_syntax:parse_name(SchemeBin),
     auth(Scheme, parse_auths(Bin2));
 
@@ -462,7 +461,7 @@ process(p, 'priority', Bin) ->
 process(fn, 'proxy-authenticate', _Ignore) -> <<"Proxy-Authenticate">>;
 process(p, 'proxy-authenticate', Bin) ->
     {SchemeBin, Bin2} = sip_syntax:parse_token(Bin),
-    % parse scheme, the rest is list of paris param=value
+    %% parse scheme, the rest is list of paris param=value
     Scheme = sip_syntax:parse_name(SchemeBin),
     auth(Scheme, parse_auths(Bin2));
 
@@ -477,11 +476,11 @@ process(f, 'proxy-authenticate', Auth) when is_record(Auth, sip_hdr_auth) ->
 %% http://tools.ietf.org/html/rfc3261#section-20.28
 process(fn, 'proxy-authorization', _Ignore) -> <<"Proxy-Authorization">>;
 process(p, 'proxy-authorization', Bin) ->
-    % same as Authorization header
+    %% same as Authorization header
     process(p, 'authorization', Bin);
 
 process(f, 'proxy-authorization', Auth) when is_record(Auth, sip_hdr_auth) ->
-    % same as Authorization header
+    %% same as Authorization header
     process(f, 'authorization', Auth);
 
 %% 20.29 Proxy-Require
@@ -641,7 +640,7 @@ process(pn, <<"v">>, _Ignore) -> 'via';
 process(fn, 'via', _Ignore) -> <<"Via">>;
 process(p, 'via', Bin) ->
     {{<<"SIP">>, Version, Transport}, Bin2} = parse_sent_protocol(Bin),
-    % Parse parameters (which should start with semicolon)
+    %% Parse parameters (which should start with semicolon)
     {Host, Port, Bin3} = sip_syntax:parse_host_port(Bin2),
     {Params, Rest} = parse_params(Bin3, fun parse_via_param/2),
 
@@ -723,12 +722,12 @@ parse_params_loop(<<?SEMI, Bin/binary>>, ParseFun, List) ->
     {NameBin, MaybeValue} = sip_syntax:parse_token(Bin),
     Name = sip_syntax:parse_name(NameBin),
     case MaybeValue of
-        % Parameter with value
+	%% Parameter with value
         <<?EQUAL, Bin2/binary>> ->
             {Value, Rest} = parse_token_or_quoted(Bin2),
             Prop = {Name, ParseFun(Name, Value)},
             parse_params_loop(Rest, ParseFun, [Prop | List]);
-        % Parameter without a value
+        %% Parameter without a value
         Rest ->
             parse_params_loop(Rest, ParseFun, [Name | List])
     end;
@@ -749,30 +748,30 @@ parse_address(Bin, ParamFun) ->
     {Value, Bin3}.
 
 parse_address_uri(<<?DQUOTE, _/binary>> = Bin) ->
-    % name-addr with quoted-string display-name
+    %% name-addr with quoted-string display-name
     {Display, <<?LAQUOT, Rest/binary>>} = sip_syntax:parse_quoted_string(Bin),
     {URI, <<?RAQUOT, Params/binary>>} = sip_binary:parse_until(Rest, ?RAQUOT),
     {Display, URI, Params};
 parse_address_uri(<<?LAQUOT, Rest/binary>>) ->
-    % name-addr without display-name
+    %% name-addr without display-name
     {URI, <<?RAQUOT, Params/binary>>} = sip_binary:parse_until(Rest, ?RAQUOT),
     {<<>>, URI, Params};
 parse_address_uri(Bin) ->
-    % either addr-spec or name-addr with token-based display-name
+    %% either addr-spec or name-addr with token-based display-name
     case sip_binary:parse_until(Bin, ?LAQUOT) of
         {_Any, <<>>} ->
-            % addr-spec
-            % Section 20
-            % If the URI is not enclosed in angle brackets, any semicolon-delimited
-            % parameters are header-parameters, not URI parameters.
-            % so, parse until comma (next header value), space character or semicolon
+            %% addr-spec
+            %% Section 20
+            %% If the URI is not enclosed in angle brackets, any semicolon-delimited
+            %% parameters are header-parameters, not URI parameters.
+            %% so, parse until comma (next header value), space character or semicolon
             Fun = fun (C) -> sip_syntax:is_space_char(C) orelse C =:= ?SEMI orelse C =:= ?COMMA end,
 
             {URI, Params} = sip_binary:parse_until(Bin, Fun),
             {<<>>, URI, Params};
 
         {Display, <<?LAQUOT, Rest/binary>>} ->
-            % name-addr with token-based display-name
+            %% name-addr with token-based display-name
             {URI, <<?RAQUOT, Params/binary>>} = sip_binary:parse_until(Rest, ?RAQUOT),
             {Display, URI, Params}
     end.
@@ -840,7 +839,7 @@ format_params(Bin, Params) ->
 format_param({Name, Value}, Bin) ->
     Name2 = sip_syntax:format_name(Name),
 
-    % If contains non-token characters, write as quoted string
+    %% If contains non-token characters, write as quoted string
     Value2 =
         case need_quoting(Value) of
             true -> sip_syntax:quote_string(Value);
@@ -870,7 +869,7 @@ format_value({_A, _B, _C, _D, _E, _F, _G, _H} = Addr) -> sip_syntax:format_addr(
 %%-----------------------------------------------------------------
 
 %% @doc
-%% Construct Via header value.
+%% Construct `Via' header value.
 %% @end
 -spec via(atom(), {string() | inet:ip_address(), integer() | 'undefined'} | string(), [any()]) -> #sip_hdr_via{}.
 via(Transport, {Host, Port}, Params) when
@@ -879,19 +878,19 @@ via(Transport, {Host, Port}, Params) when
 via(Transport, Host, Params) when is_list(Host); is_tuple(Host) ->
     via(Transport, {Host, 5060}, Params).
 
-%% @doc Construct media type value.
+%% @doc Construct `media-type' value.
 %% @end
 -spec media(sip_name(), sip_name(), [any()]) -> #sip_hdr_mediatype{}.
 media(Type, SubType, Params) when is_list(Params) ->
     #sip_hdr_mediatype{type = Type, subtype = SubType, params = Params}.
 
-%% @doc Construct encoding type value.
+%% @doc Construct `encoding-type' value.
 %% @end
 -spec encoding(sip_name(), [any()]) -> #sip_hdr_encoding{}.
 encoding(Encoding, Params) when is_list(Params) ->
     #sip_hdr_encoding{encoding = Encoding, params = Params}.
 
-%% @doc Construct language type value.
+%% @doc Construct `language-type' value.
 %% @end
 -spec language(sip_name(), [any()]) -> #sip_hdr_language{}.
 language(Language, Params) when is_list(Params) ->
@@ -977,8 +976,8 @@ parse_auths(Bin) ->
                    Name =:= opaque; Name =:= domain ->
                 sip_syntax:parse_quoted_string(ValueBin);
             _ when Name =:= qop, binary_part(ValueBin, {0, 1}) =:= <<?DQUOTE>> ->
-                % special case for Proxy-Authenticate, qop parameter is quoted string
-                % which can contain several qop-value's
+		%% special case for Proxy-Authenticate, qop parameter is quoted string
+		%% which can contain several qop-value's
                 {QOPsBin, R} = sip_syntax:parse_quoted_string(ValueBin),
                 List = binary:split(QOPsBin, [<<?COMMA>>], [global]),
                 QOPs = [sip_syntax:parse_name(sip_binary:trim(QOP)) || QOP <- List],
@@ -998,7 +997,7 @@ parse_auths(Bin) ->
             nc ->
                 {NC, R} = sip_binary:parse_while(ValueBin, fun sip_syntax:is_alphanum_char/1),
                 {list_to_integer(binary_to_list(NC), 16), sip_binary:trim_leading(R)};
-            % arbitrary auth-param
+	    %% arbitrary auth-param
             _Other ->
                 parse_token_or_quoted(ValueBin)
         end,
@@ -1020,7 +1019,7 @@ format_auth(Name, Value) when
   Name =:= opaque; Name =:= domain ->
     sip_syntax:quote_string(Value);
 format_auth(qop, [First|Rest]) ->
-    % special case for Proxy-Authenticate, qop is a list
+    %% special case for Proxy-Authenticate, qop is a list
     Acc0 = <<(sip_syntax:format_name(First))/binary>>,
     Bin = lists:foldl(fun(QOP, Acc) -> <<Acc/binary, ?COMMA, ?SP, (sip_syntax:format_name(QOP))/binary>> end, Acc0, Rest),
     sip_syntax:quote_string(Bin);
@@ -1036,7 +1035,7 @@ format_auth(nc, NonceCount) ->
 format_auth(stale, false) -> <<"false">>;
 format_auth(stale, true) -> <<"true">>;
 format_auth(_Name, Value) when is_binary(Value) ->
-    % arbitrary auth-param
+    %% arbitrary auth-param
     case need_quoting(Value) of
         true -> sip_syntax:quote_string(Value);
         false -> Value
@@ -1057,12 +1056,12 @@ parse_language(Bin) ->
     {sip_syntax:parse_name(LangBin), Rest}.
 
 
-% RFC 3261, 7.3.1
-% The line break and the whitespace at the beginning of the next
-% line are treated as a single SP character. This function appends
-% such lines to the last header.
+%% RFC 3261, 7.3.1
+%% The line break and the whitespace at the beginning of the next
+%% line are treated as a single SP character. This function appends
+%% such lines to the last header.
 fold_header(<<C/utf8, _/binary>> = Line, [{Name, Value} | Tail]) when
-  C =:= ?SP; C =:= ?HTAB ->
+      C =:= ?SP; C =:= ?HTAB ->
     Line2 = sip_binary:trim_leading(Line),
     Value2 = sip_binary:trim_trailing(Value),
     [{Name, <<Value2/binary, ?SP, Line2/binary>>} | Tail];
@@ -1118,7 +1117,7 @@ header_names_test_() ->
                        "s: Need more boxes\r\nk: 100rel\r\n",
                        "t: sip:bob@localhost\r\nv: SIP/2.0/UDP localhost\r\n">>)),
 
-     % formatting, check that header names have proper case
+     %% formatting, check that header names have proper case
      ?_assertEqual(<<"Accept: */*\r\nAccept-Encoding: identity\r\n",
                      "Accept-Language: en\r\nAlert-Info: <http://www.example.com/sounds/moo.wav>\r\n",
                      "Allow: INVITE\r\nAuthentication-Info: nextnonce=\"47364c23432d2e131a5fb210812c\"\r\n",
@@ -1174,23 +1173,23 @@ header_names_test_() ->
 parse_headers_test_() ->
     [% verify parsing/formatting of all supported headers
 
-     % parsing
+     %% parsing
      ?_assertEqual([], parse_headers(<<>>)),
 
-     % multi-line headers
+     %% multi-line headers
      ?_assertEqual([{'subject', <<"I know you're there, pick up the phone and talk to me!">>}],
                    parse_headers(<<"Subject: I know you're there,\r\n               pick up the phone   \r\n               and talk to me!\r\n">>)),
      ?_assertEqual([{'subject', <<"I know you're there, pick up the phone and talk to me!">>}],
                    parse_headers(<<"Subject: I know you're there,\r\n\tpick up the phone    \r\n               and talk to me!\r\n">>)),
 
-     % Already parsed
+     %% Already parsed
      ?_assertEqual({parsed, value}, parse('x-custom2', {parsed, value})),
 
-     % Custom header
+     %% Custom header
      ?_assertEqual(<<"custom">>, parse('x-custom2', <<"custom">>)),
      ?_assertEqual(<<"25">>, format('x-custom2', 25)),
 
-     % Accept
+     %% Accept
      ?_assertEqual([media('application', 'sdp', [{level, <<"1">>}]),
                     media('application', '*', [{q, 0.5}]),
                     media('*', '*', [{q, 0.3}])],
@@ -1200,7 +1199,7 @@ parse_headers_test_() ->
                                      media('application', '*', [{q, 0.5}]),
                                      media('*', '*', [{q, 0.3}])])),
 
-     % Accept-Encoding
+     %% Accept-Encoding
      ?_assertEqual([encoding('gzip', []),
                     encoding('identity', [{q, 0.3}]),
                     encoding('*', [{q, 0.2}])],
@@ -1211,7 +1210,7 @@ parse_headers_test_() ->
                            encoding('identity', [{q, 0.3}]),
                            encoding('*', [{q, 0.2}])])),
 
-     % Accept-Language
+     %% Accept-Language
      ?_assertEqual([language('da', []),
                     language('en-gb', [{q, 0.8}]),
                     language('en', [{q, 0.7}]),
@@ -1224,7 +1223,7 @@ parse_headers_test_() ->
                            language('en', [{q, 0.7}]),
                            language('*', [{q, 0.6}])])),
 
-     % Alert-Info
+     %% Alert-Info
      ?_assertEqual([info(<<"http://www.example.com/sounds/moo.wav">>, []),
                     info(<<"http://www.example.com/sounds/boo.wav">>, [{foo, <<"value">>}])],
                    parse('alert-info', <<"<http://www.example.com/sounds/moo.wav>, <http://www.example.com/sounds/boo.wav>;foo=value">>)),
@@ -1233,13 +1232,13 @@ parse_headers_test_() ->
                           [info(<<"http://www.example.com/sounds/moo.wav">>, []),
                            info(<<"http://www.example.com/sounds/boo.wav">>, [{foo, <<"value">>}])])),
 
-     % Allow
+     %% Allow
      ?_assertEqual(['INVITE', 'ACK', 'CANCEL', 'OPTIONS', 'BYE'],
                    parse('allow', <<"INVITE, ACK, CANCEL, OPTIONS, BYE">>)),
      ?_assertEqual(<<"INVITE, ACK, CANCEL, OPTIONS, BYE">>,
                    format('allow', ['INVITE', 'ACK', 'CANCEL', 'OPTIONS', 'BYE'])),
 
-     % Authentication-Info
+     %% Authentication-Info
      ?_assertEqual([{nextnonce, <<"47364c23432">>},
                     {qop, auth},
                     {rspauth, <<95, 17, 58, 84, 50>>},
@@ -1254,7 +1253,7 @@ parse_headers_test_() ->
                            {cnonce, <<"42a2187831a9e">>},
                            {nc, 25}])),
 
-     % Authorization
+     %% Authorization
      ?_assertEqual(auth('Digest',
                         [{username, <<"Alice">>}, {realm, <<"atlanta.com">>},
                          {nonce, <<"84a4cc6f3082121f32b42a2187831a9e">>}, {uri, <<"sip:alice@atlanta.com">>},
@@ -1281,11 +1280,11 @@ parse_headers_test_() ->
                                 {qop, auth}, {nc, 1}, {param, <<"value">>}, {param2, <<"va lue">>}]))),
 
 
-     % Call-Id
+     %% Call-Id
      ?_assertEqual(<<"somecallid">>, parse('call-id', <<"somecallid">>)),
      ?_assertEqual(<<"somecallid">>, format('call-id', <<"somecallid">>)),
 
-     % Call-Info
+     %% Call-Info
      ?_assertEqual([info(<<"http://wwww.example.com/alice/photo.jpg">>, [{purpose, icon}]),
                     info(<<"http://www.example.com/alice/">>, [{purpose, info}, {param, <<"value">>}])],
                    parse('call-info', <<"<http://wwww.example.com/alice/photo.jpg> ;purpose=icon, <http://www.example.com/alice/> ;purpose=info;param=\"value\"">>)),
@@ -1294,7 +1293,7 @@ parse_headers_test_() ->
                           [info(<<"http://wwww.example.com/alice/photo.jpg">>, [{purpose, icon}]),
                            info(<<"http://www.example.com/alice/">>, [{purpose, info}, {param, <<"value">>}])])),
 
-     % Contact
+     %% Contact
      ?_assertEqual([address(<<"Bob">>, <<"sip:bob@biloxi.com">>, [{q, 0.1}])],
                    parse('contact', <<"Bob <sip:bob@biloxi.com>;q=0.1">>)),
      ?_assertEqual([address(<<"Bob">>, <<"sip:bob@biloxi.com">>, [{q, 0.1}]),
@@ -1331,54 +1330,54 @@ parse_headers_test_() ->
                    format('contact', [address(<<"Mr. Watson">>, <<"sip:watson@worcester.bell-telephone.com">>, [{q, 0.7}, {expires, 3600}]),
                                       address(<<"Mr. Watson">>, <<"mailto:watson@bell-telephone.com">>, [{q, 0.1}])])),
 
-     % Content-Disposition
+     %% Content-Disposition
      ?_assertEqual(#sip_hdr_disposition{type = 'icon', params = [{handling, optional}, {param, <<"value">>}]},
                    parse('content-disposition', <<"icon;handling=optional;param=value">>)),
      ?_assertEqual(<<"icon;handling=optional;param=value">>,
                    format('content-disposition', #sip_hdr_disposition{type = 'icon', params = [{handling, optional}, {param, value}]})),
 
 
-     % Content-Encoding
+     %% Content-Encoding
      ?_assertEqual([gzip, tar], parse('content-encoding', <<"gzip, tar">>)),
      ?_assertEqual(<<"gzip, tar">>, format('content-encoding', [gzip, tar])),
 
-     % Content-Language
+     %% Content-Language
      ?_assertEqual([en, 'en-us-some'],
                    parse('content-language', <<"en, en-us-some">>)),
      ?_assertEqual(<<"en, en-us-some">>,
                    format('content-language', [en, 'en-us-some'])),
 
-     % Content-Length
+     %% Content-Length
      ?_assertEqual(32543523, parse('content-length', <<"32543523">>)),
      ?_assertEqual(<<"98083">>, format('content-length', 98083)),
 
-     % Content-Type
+     %% Content-Type
      ?_assertEqual(media('application', 'sdp', [{param, <<"value">>}]),
                    parse('content-type', <<"application/sdp;param=value">>)),
      ?_assertEqual(<<"application/sdp;param=value">>,
                    format('content-type', media('application', 'sdp', [{param, <<"value">>}]))),
 
-     % CSeq
+     %% CSeq
      ?_assertEqual(cseq(1231, 'ACK'), parse('cseq', <<"1231 ACK">>)),
      ?_assertEqual(<<"123453 INVITE">>, format('cseq', cseq(123453, 'INVITE'))),
 
-     % Date
+     %% Date
      ?_assertEqual({{2010, 11, 13}, {23, 29, 00}},
                     parse('date', <<"Sat, 13 Nov 2010 23:29:00 GMT">>)),
      ?_assertEqual(<<"Sat, 13 Nov 2010 23:29:00 GMT">>,
                     format('date', {{2010, 11, 13}, {23, 29, 00}})),
 
-     % Error-Info
+     %% Error-Info
      ?_assertEqual([info(<<"sip:not-in-service-recording@atlanta.com">>, [{param, <<"value">>}])],
                    parse('error-info', <<"<sip:not-in-service-recording@atlanta.com>;param=\"value\"">>)),
      ?_assertEqual(<<"<sip:not-in-service-recording@atlanta.com>;param=value">>,
                    format('error-info', [info(<<"sip:not-in-service-recording@atlanta.com">>, [{param, <<"value">>}])])),
 
-     % Expires
+     %% Expires
      ?_assertEqual(213, parse('expires', <<"213">>)),
      ?_assertEqual(<<"213">>, format('expires', 213)),
 
-     % From
+     %% From
      ?_assertEqual(address(<<"Bob  Zert">>, <<"sip:bob@biloxi.com">>, [{'tag', <<"1928301774">>}]),
                    parse('from', <<"Bob  Zert <sip:bob@biloxi.com>;tag=1928301774">>)),
      ?_assertEqual(address(<<>>, <<"sip:bob@biloxi.com">>, [{'tag', <<"1928301774">>}]),
@@ -1397,33 +1396,33 @@ parse_headers_test_() ->
      ?_assertEqual(<<"\"Bob Zert\" <sip:bob@biloxi.com>;tag=1928301774">>,
                    format('from', address(<<"Bob Zert">>, <<"sip:bob@biloxi.com">>, [{'tag', <<"1928301774">>}]))),
 
-     % In-Reply-To
+     %% In-Reply-To
      ?_assertEqual([<<"70710@saturn.bell-tel.com">>, <<"17320@saturn.bell-tel.com">>],
                    parse('in-reply-to', <<"70710@saturn.bell-tel.com, 17320@saturn.bell-tel.com">>)),
      ?_assertEqual(<<"70710@saturn.bell-tel.com, 17320@saturn.bell-tel.com">>,
                    format('in-reply-to', [<<"70710@saturn.bell-tel.com">>, <<"17320@saturn.bell-tel.com">>])),
 
-     % Max-Forwards
+     %% Max-Forwards
      ?_assertEqual(70, parse('max-forwards', <<"70">>)),
      ?_assertEqual(<<"70">>, format('max-forwards', 70)),
 
-     % Min-Expires
+     %% Min-Expires
      ?_assertEqual(213, parse('min-expires', <<"213">>)),
      ?_assertEqual(<<"213">>, format('min-expires', 213)),
 
-     % MIME-Version
+     %% MIME-Version
      ?_assertEqual({1, 0}, parse('mime-version', <<"1.0">>)),
      ?_assertEqual(<<"1.0">>, format('mime-version', {1, 0})),
 
-     % Organization
+     %% Organization
      ?_assertEqual(<<"Boxes by Bob">>, parse('organization', <<"  Boxes by Bob  ">>)),
      ?_assertEqual(<<"Boxes by Bob">>, format('organization', <<"Boxes by Bob">>)),
 
-     % Priority
+     %% Priority
      ?_assertEqual('non-urgent', parse('priority', <<"non-urgent">>)),
      ?_assertEqual(<<"non-urgent">>, format('priority', 'non-urgent')),
 
-     % Proxy-Authenticate
+     %% Proxy-Authenticate
      ?_assertEqual(auth('Digest',
                         [{realm, <<"atlanta.com">>}, {domain, <<"sip:ss1.carrier.com">>},
                          {nonce, <<"f84f1cec41e6cbe5aea9c8e88d359">>}, {opaque, <<>>},
@@ -1450,8 +1449,8 @@ parse_headers_test_() ->
      ?_assertEqual(<<"Digest realm=\"atlanta.com\", stale=true">>,
                    format('proxy-authenticate', auth('Digest', [{realm, <<"atlanta.com">>}, {stale, true}]))),
 
-     % Proxy-Authorization
-     % XXX: copy-pasted from Authorization header tests.
+     %% Proxy-Authorization
+     %% XXX: copy-pasted from Authorization header tests.
      ?_assertEqual(auth('Digest',
                         [{username, <<"Alice">>}, {realm, <<"atlanta.com">>},
                          {nonce, <<"84a4cc6f3082121f32b42a2187831a9e">>}, {uri, <<"sip:alice@atlanta.com">>},
@@ -1477,27 +1476,27 @@ parse_headers_test_() ->
                                 {cnonce, <<"0a4f113b">>}, {opaque, <<"5ccc069c403ebaf9f0171e9517f40e41">>},
                                 {qop, auth}, {nc, 1}, {param, <<"value">>}, {param2, <<"va lue">>}]))),
 
-     % Proxy-Require
+     %% Proxy-Require
      ?_assertEqual([foo, bar], parse('proxy-require', <<"foo, bar">>)),
      ?_assertEqual(<<"foo, bar">>, format('proxy-require', [foo, bar])),
 
-     % Record-Route
+     %% Record-Route
      ?_assertEqual([address(<<>>, <<"sip:p1.example.com;lr">>, [])],
                    parse('record-route', <<"<sip:p1.example.com;lr>">>)),
      ?_assertEqual(<<"<sip:p1.example.com;lr>">>,
                    format('record-route', address(<<>>, <<"sip:p1.example.com;lr">>, []))),
 
-     % Reply-To
+     %% Reply-To
      ?_assertEqual(address(<<"Bob">>, <<"sip:bob@biloxi.com">>, [{param, <<"value">>}]),
                    parse('reply-to', <<"Bob <sip:bob@biloxi.com>;param=value">>)),
      ?_assertEqual(<<"\"Bob\" <sip:bob@biloxi.com>;param=value">>,
                    format('reply-to', address(<<"Bob">>, <<"sip:bob@biloxi.com">>, [{param, <<"value">>}]))),
 
-     % Require
+     %% Require
      ?_assertEqual([foo, bar], parse('require', <<"foo, bar">>)),
      ?_assertEqual(<<"foo, bar">>, format('require', [foo, bar])),
 
-     % Retry-After
+     %% Retry-After
      ?_assertEqual(retry(18000, <<>>, [{duration, 3600}, {param, <<"value">>}]),
                    parse('retry-after', <<"18000;duration=3600;param=value">>)),
      ?_assertEqual(retry(120, <<"(I'm in a meeting)">>, []),
@@ -1507,31 +1506,31 @@ parse_headers_test_() ->
      ?_assertEqual(<<"120 (I'm in a meeting)">>,
                    format('retry-after', retry(120, <<"(I'm in a meeting)">>, []))),
 
-     % Route
+     %% Route
      ?_assertEqual([address(<<>>, <<"sip:p1.example.com;lr">>, [])],
                    parse('route', <<"<sip:p1.example.com;lr>">>)),
      ?_assertEqual(<<"<sip:p1.example.com;lr>">>,
                    format('route', address(<<>>, <<"sip:p1.example.com;lr">>, []))),
 
-     % Server
+     %% Server
      ?_assertEqual(<<"HomeServer v2">>, parse('server', <<"HomeServer v2">>)),
      ?_assertEqual(<<"HomeServer v2">>, format('server', <<"HomeServer v2">>)),
 
-     % Subject
+     %% Subject
      ?_assertEqual(<<"Need more boxes">>, parse('subject', <<"Need more boxes">>)),
      ?_assertEqual(<<"Need more boxes">>, format('subject', <<"Need more boxes">>)),
 
-     % Supported
+     %% Supported
      ?_assertEqual([foo, bar], parse('supported', <<"foo, bar">>)),
      ?_assertEqual(<<"foo, bar">>, format('supported', [foo, bar])),
 
-     % Timestamp
+     %% Timestamp
      ?_assertEqual(timestamp(54.3, 2.6), parse('timestamp', <<"54.3 2.6">>)),
      ?_assertEqual(timestamp(54.3, 0.0), parse('timestamp', <<"54.3">>)),
      ?_assertEqual(<<"54.3 2.6">>, format('timestamp', timestamp(54.3, 2.6))),
      ?_assertEqual(<<"54.3">>, format('timestamp', timestamp(54.3, 0.0))),
 
-     % To
+     %% To
      ?_assertEqual(address(<<"Bob Zert">>, <<"sip:bob@biloxi.com">>, [{'tag', <<"1928301774">>}]),
                    parse('to', <<"\"Bob Zert\" <sip:bob@biloxi.com>;tag=1928301774">>)),
      ?_assertEqual(address(<<"Bob \"Zert">>, <<"sip:bob@biloxi.com">>, [{'tag', <<"1928301774">>}]),
@@ -1542,15 +1541,15 @@ parse_headers_test_() ->
      ?_assertEqual(<<"\"Bob \\\"Zert\" <sip:bob@biloxi.com>;tag=1928301774">>,
                    format('to', address(<<"Bob \"Zert">>, <<"sip:bob@biloxi.com">>, [{'tag', <<"1928301774">>}]))),
 
-     % Unsupported
+     %% Unsupported
      ?_assertEqual([foo, bar], parse('unsupported', <<"foo, bar">>)),
      ?_assertEqual(<<"foo, bar">>, format('unsupported', [foo, bar])),
 
-     % User-Agent
+     %% User-Agent
      ?_assertEqual(<<"Softphone Beta1.5">>, parse('user-agent', <<"Softphone Beta1.5">>)),
      ?_assertEqual(<<"Softphone Beta1.5">>, format('user-agent', <<"Softphone Beta1.5">>)),
 
-     % Via
+     %% Via
      ?_assertEqual([via(udp, {{8193,3512,0,0,0,0,44577,44306}, undefined}, [{branch, <<"z9hG4bK776asdhds">>}])],
                    parse('via', <<"SIP/2.0/UDP [2001:0db8:0000:0000:0000:0000:ae21:ad12];branch=z9hG4bK776asdhds">>)),
      ?_assertEqual([via(udp, {"pc33.atlanta.com", undefined}, [{branch, <<"z9hG4bK776asdhds">>}])],
@@ -1578,7 +1577,7 @@ parse_headers_test_() ->
      ?_assertEqual([via(udp, {"pc33.atlanta.com", undefined}, [{ttl, 3}, {maddr, "sip.mcast.net"}, {received, {127, 0, 0, 1}}, {branch, <<"z9hG4bK776asdhds">>}])],
                    parse('via', <<"SIP/2.0/UDP pc33.atlanta.com;ttl=3;maddr=sip.mcast.net;received=127.0.0.1;branch=z9hG4bK776asdhds">>)),
 
-     % rport
+     %% rport
      ?_assertEqual([via(udp, {"pc33.atlanta.com", undefined}, [{branch, <<"z9hG4bK776asdhds">>}, rport])],
                    parse('via', <<"SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds;rport">>)),
      ?_assertEqual(<<"SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds;rport">>,
@@ -1589,7 +1588,7 @@ parse_headers_test_() ->
      ?_assertEqual(<<"SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds;rport=5061">>,
                    format('via', [via(udp, {"pc33.atlanta.com", undefined}, [{branch, <<"z9hG4bK776asdhds">>}, {rport, 5061}])])),
 
-     % Warning
+     %% Warning
      ?_assertEqual([warning(307, <<"isi.edu">>, <<"Session parameter 'foo' not understood">>),
                     warning(301, <<"isi.edu">>, <<"Incompatible network address type 'E.164'">>)],
                    parse('warning', <<"307 isi.edu \"Session parameter 'foo' not understood\", ",
@@ -1600,7 +1599,7 @@ parse_headers_test_() ->
                           [warning(307, <<"isi.edu">>, <<"Session parameter 'foo' not understood">>),
                            warning(301, <<"isi.edu">>, <<"Incompatible network address type 'E.164'">>)])),
 
-     % WWW-Authenticate
+     %% WWW-Authenticate
      ?_assertEqual(auth('Digest',
                         [{realm, <<"atlanta.com">>}, {domain, <<"sip:ss1.carrier.com">>},
                          {nonce, <<"f84f1cec41e6cbe5aea9c8e88d359">>}, {opaque, <<>>},
@@ -1627,12 +1626,12 @@ parse_headers_test_() ->
      ?_assertEqual(<<"Digest realm=\"atlanta.com\", stale=true">>,
                    format('www-authenticate', auth('Digest', [{realm, <<"atlanta.com">>}, {stale, true}]))),
 
-     % If the URI is not enclosed in angle brackets, any semicolon-delimited
-     % parameters are header-parameters, not URI parameters, Section 20.
+     %% If the URI is not enclosed in angle brackets, any semicolon-delimited
+     %% parameters are header-parameters, not URI parameters, Section 20.
      ?_assertEqual({address(<<>>, sip_uri:parse(<<"sip:alice@atlanta.com">>), [{param, <<"value">>}]), <<>>},
                    parse_address(<<"sip:alice@atlanta.com;param=value">>, fun parse_generic_param/2)),
 
-     % Check we support certain values
+     %% Check we support certain values
      ?_assertEqual(<<"some">>, format_value(some)),
      ?_assertEqual(<<"some">>, format_value(<<"some">>)),
      ?_assertEqual(<<"123">>, format_value(123)),

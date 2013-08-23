@@ -274,7 +274,13 @@ parse_ip_address(Bin) ->
 %% @doc Convert address (IPv4, IPv6 or hostname) to binary string
 %% @end
 -spec format_addr(inet:ip_address() | string()) -> binary().
-format_addr(Str) when is_list(Str) -> list_to_binary(Str);
+format_addr(Str) when is_list(Str) ->
+    case string:words(Str, $:) of
+	8 ->  %% IPv6
+	    <<"[", (list_to_binary(Str))/binary, "]">>;
+	_ ->
+	    list_to_binary(Str)
+    end;
 format_addr({A, B, C, D}) when
   is_integer(A), is_integer(B), is_integer(C), is_integer(D) ->
     <<(sip_binary:integer_to_binary(A))/binary, $.,
@@ -332,7 +338,8 @@ parse_name(Bin) ->
 %% @end
 -spec format_name(sip_name()) -> binary().
 format_name(Name) when is_binary(Name) -> Name;
-format_name(Name) when is_atom(Name) -> atom_to_binary(Name, utf8).
+format_name(Name) when is_atom(Name) -> atom_to_binary(Name, utf8);
+format_name(Name) when is_list(Name) -> list_to_binary(Name).
 
 -spec parse_method(binary()) -> sip_method().
 %% @doc Parse method given in binary format into atom
